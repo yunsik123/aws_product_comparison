@@ -100,3 +100,7 @@ node_modules/
 proj.md
 RUNNING.md
 API_ENDPOINT.txt
+WEBSITE_URL.txt
+
+# Claude Code
+.claude/

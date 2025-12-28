@@ -1,0 +1,588 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>라면 가격 비교 - 농심 vs 경쟁사</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" rel="stylesheet">
+    <style>
+        :root {
+            --primary-color: #e31837;
+            --secondary-color: #ffd700;
+            --bg-gradient: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        }
+
+        body {
+            background: #f8f9fa;
+            font-family: 'Noto Sans KR', -apple-system, BlinkMacSystemFont, sans-serif;
+        }
+
+        .hero {
+            background: var(--bg-gradient);
+            color: white;
+            padding: 3rem 0;
+            margin-bottom: 2rem;
+        }
+
+        .hero h1 {
+            font-weight: 700;
+            font-size: 2.5rem;
+        }
+
+        .card {
+            border: none;
+            border-radius: 16px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.08);
+            transition: transform 0.3s ease;
+        }
+
+        .card:hover {
+            transform: translateY(-5px);
+        }
+
+        .product-card {
+            background: white;
+            padding: 1.5rem;
+        }
+
+        .product-card.product-a {
+            border-left: 4px solid #e31837;
+        }
+
+        .product-card.product-b {
+            border-left: 4px solid #1976d2;
+        }
+
+        .product-image {
+            width: 120px;
+            height: 120px;
+            object-fit: contain;
+            border-radius: 8px;
+            background: #f5f5f5;
+        }
+
+        .price-tag {
+            font-size: 2rem;
+            font-weight: 700;
+            color: var(--primary-color);
+        }
+
+        .rating-stars {
+            color: #ffc107;
+            font-size: 1.2rem;
+        }
+
+        .badge-pros {
+            background: #4caf50;
+            color: white;
+        }
+
+        .badge-cons {
+            background: #f44336;
+            color: white;
+        }
+
+        .comparison-box {
+            background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+            border-radius: 16px;
+            padding: 2rem;
+        }
+
+        .diff-positive {
+            color: #4caf50;
+            font-weight: 600;
+        }
+
+        .diff-negative {
+            color: #f44336;
+            font-weight: 600;
+        }
+
+        .btn-compare {
+            background: var(--bg-gradient);
+            border: none;
+            padding: 12px 40px;
+            font-size: 1.1rem;
+            border-radius: 50px;
+            transition: all 0.3s ease;
+        }
+
+        .btn-compare:hover {
+            transform: scale(1.05);
+            box-shadow: 0 8px 25px rgba(102, 126, 234, 0.4);
+        }
+
+        .form-select {
+            border-radius: 12px;
+            padding: 12px 16px;
+            border: 2px solid #e0e0e0;
+        }
+
+        .form-select:focus {
+            border-color: #667eea;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.2);
+        }
+
+        .loading-spinner {
+            display: none;
+        }
+
+        .loading .loading-spinner {
+            display: inline-block;
+        }
+
+        .loading .btn-text {
+            display: none;
+        }
+
+        .offer-list {
+            max-height: 300px;
+            overflow-y: auto;
+        }
+
+        .offer-item {
+            padding: 10px;
+            border-bottom: 1px solid #eee;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .offer-item:last-child {
+            border-bottom: none;
+        }
+
+        .offer-price {
+            font-weight: 600;
+            color: #e31837;
+        }
+
+        .data-source {
+            font-size: 0.8rem;
+            color: #888;
+        }
+
+        .empty-state {
+            text-align: center;
+            padding: 3rem;
+            color: #888;
+        }
+
+        .empty-state i {
+            font-size: 4rem;
+            margin-bottom: 1rem;
+            color: #ddd;
+        }
+
+        @media (max-width: 768px) {
+            .hero h1 {
+                font-size: 1.8rem;
+            }
+            .price-tag {
+                font-size: 1.5rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- Hero Section -->
+    <div class="hero text-center">
+        <div class="container">
+            <h1><i class="fas fa-balance-scale me-2"></i>라면 가격 비교</h1>
+            <p class="lead mb-0">다나와 실시간 데이터로 농심 제품과 경쟁사 제품을 비교하세요</p>
+        </div>
+    </div>
+
+    <div class="container pb-5">
+        <!-- Search Form -->
+        <div class="card mb-4">
+            <div class="card-body p-4">
+                <div class="row g-3 align-items-end">
+                    <div class="col-md-3">
+                        <label class="form-label fw-semibold">브랜드 A</label>
+                        <select id="brandA" class="form-select">
+                            <option value="농심" selected>농심</option>
+                            <option value="오뚜기">오뚜기</option>
+                            <option value="삼양">삼양</option>
+                            <option value="팔도">팔도</option>
+                        </select>
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label fw-semibold">제품 A</label>
+                        <select id="productA" class="form-select">
+                            <option value="신라면" selected>신라면</option>
+                            <option value="신라면 컵">신라면 컵</option>
+                            <option value="짜파게티">짜파게티</option>
+                            <option value="너구리">너구리</option>
+                        </select>
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label fw-semibold">브랜드 B</label>
+                        <select id="brandB" class="form-select">
+                            <option value="농심">농심</option>
+                            <option value="오뚜기" selected>오뚜기</option>
+                            <option value="삼양">삼양</option>
+                            <option value="팔도">팔도</option>
+                        </select>
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label fw-semibold">제품 B</label>
+                        <select id="productB" class="form-select">
+                            <option value="진라면" selected>진라면</option>
+                            <option value="진라면 매운맛">진라면 매운맛</option>
+                            <option value="삼양라면">삼양라면</option>
+                            <option value="팔도비빔면">팔도비빔면</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="text-center mt-4">
+                    <button id="compareBtn" class="btn btn-compare btn-primary btn-lg text-white" onclick="compareProducts()">
+                        <span class="btn-text"><i class="fas fa-search me-2"></i>비교하기</span>
+                        <span class="loading-spinner">
+                            <span class="spinner-border spinner-border-sm me-2"></span>비교 중...
+                        </span>
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Results Section -->
+        <div id="results" style="display: none;">
+            <!-- Comparison Summary -->
+            <div class="comparison-box mb-4">
+                <h4 class="text-center mb-4"><i class="fas fa-chart-bar me-2"></i>비교 결과</h4>
+                <div class="row text-center">
+                    <div class="col-md-4">
+                        <div class="h6 text-muted">가격 차이</div>
+                        <div id="priceDiff" class="h3">-</div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="h6 text-muted">평점 차이</div>
+                        <div id="ratingDiff" class="h3">-</div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="h6 text-muted">리뷰 수 차이</div>
+                        <div id="reviewDiff" class="h3">-</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Product Cards -->
+            <div class="row g-4">
+                <!-- Product A -->
+                <div class="col-md-6">
+                    <div class="card product-card product-a h-100">
+                        <div class="card-body">
+                            <div class="d-flex align-items-start mb-3">
+                                <img id="imageA" src="" class="product-image me-3" alt="제품 이미지">
+                                <div>
+                                    <span class="badge bg-danger mb-2">제품 A</span>
+                                    <h5 id="titleA" class="card-title mb-1">-</h5>
+                                    <div class="data-source" id="sourceA">-</div>
+                                </div>
+                            </div>
+
+                            <div class="row mb-3">
+                                <div class="col-6">
+                                    <div class="text-muted small">최저가</div>
+                                    <div id="priceA" class="price-tag">-</div>
+                                </div>
+                                <div class="col-6">
+                                    <div class="text-muted small">평점</div>
+                                    <div id="ratingA" class="rating-stars">-</div>
+                                </div>
+                            </div>
+
+                            <div class="mb-3">
+                                <div class="text-muted small mb-2">리뷰 수</div>
+                                <div id="reviewCountA" class="h5">-</div>
+                            </div>
+
+                            <div class="mb-3">
+                                <div class="text-muted small mb-2"><i class="fas fa-thumbs-up me-1"></i>장점</div>
+                                <div id="prosA">-</div>
+                            </div>
+
+                            <div class="mb-3">
+                                <div class="text-muted small mb-2"><i class="fas fa-thumbs-down me-1"></i>단점</div>
+                                <div id="consA">-</div>
+                            </div>
+
+                            <hr>
+                            <div class="text-muted small mb-2">다른 판매처</div>
+                            <div id="offersA" class="offer-list">-</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Product B -->
+                <div class="col-md-6">
+                    <div class="card product-card product-b h-100">
+                        <div class="card-body">
+                            <div class="d-flex align-items-start mb-3">
+                                <img id="imageB" src="" class="product-image me-3" alt="제품 이미지">
+                                <div>
+                                    <span class="badge bg-primary mb-2">제품 B</span>
+                                    <h5 id="titleB" class="card-title mb-1">-</h5>
+                                    <div class="data-source" id="sourceB">-</div>
+                                </div>
+                            </div>
+
+                            <div class="row mb-3">
+                                <div class="col-6">
+                                    <div class="text-muted small">최저가</div>
+                                    <div id="priceB" class="price-tag">-</div>
+                                </div>
+                                <div class="col-6">
+                                    <div class="text-muted small">평점</div>
+                                    <div id="ratingB" class="rating-stars">-</div>
+                                </div>
+                            </div>
+
+                            <div class="mb-3">
+                                <div class="text-muted small mb-2">리뷰 수</div>
+                                <div id="reviewCountB" class="h5">-</div>
+                            </div>
+
+                            <div class="mb-3">
+                                <div class="text-muted small mb-2"><i class="fas fa-thumbs-up me-1"></i>장점</div>
+                                <div id="prosB">-</div>
+                            </div>
+
+                            <div class="mb-3">
+                                <div class="text-muted small mb-2"><i class="fas fa-thumbs-down me-1"></i>단점</div>
+                                <div id="consB">-</div>
+                            </div>
+
+                            <hr>
+                            <div class="text-muted small mb-2">다른 판매처</div>
+                            <div id="offersB" class="offer-list">-</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Data Info -->
+            <div class="text-center mt-4">
+                <small class="text-muted">
+                    <i class="fas fa-clock me-1"></i>
+                    데이터 수집 시간: <span id="fetchedAt">-</span>
+                    | 출처: 다나와
+                </small>
+            </div>
+        </div>
+
+        <!-- Empty State -->
+        <div id="emptyState" class="empty-state">
+            <i class="fas fa-search"></i>
+            <h4>제품을 선택하고 비교하기를 눌러주세요</h4>
+            <p class="text-muted">다나와에서 수집된 최신 가격 정보를 비교해 드립니다</p>
+        </div>
+
+        <!-- Error State -->
+        <div id="errorState" class="empty-state" style="display: none;">
+            <i class="fas fa-exclamation-triangle text-warning"></i>
+            <h4>데이터를 불러올 수 없습니다</h4>
+            <p id="errorMessage" class="text-muted">잠시 후 다시 시도해 주세요</p>
+        </div>
+    </div>
+
+    <!-- Footer -->
+    <footer class="bg-dark text-white text-center py-4 mt-5">
+        <div class="container">
+            <p class="mb-1">라면 가격 비교 서비스</p>
+            <small class="text-muted">데이터 출처: 다나와 | AWS Lambda + DynamoDB로 구동</small>
+        </div>
+    </footer>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        const API_URL = 'https://2u1c4z6ehf.execute-api.ap-northeast-2.amazonaws.com';
+
+        async function compareProducts() {
+            const btn = document.getElementById('compareBtn');
+            const results = document.getElementById('results');
+            const emptyState = document.getElementById('emptyState');
+            const errorState = document.getElementById('errorState');
+
+            // Get selected values
+            const brandA = document.getElementById('brandA').value;
+            const productA = document.getElementById('productA').value;
+            const brandB = document.getElementById('brandB').value;
+            const productB = document.getElementById('productB').value;
+
+            // Show loading state
+            btn.classList.add('loading');
+            btn.disabled = true;
+            results.style.display = 'none';
+            emptyState.style.display = 'none';
+            errorState.style.display = 'none';
+
+            try {
+                const response = await fetch(`${API_URL}/compare`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        brand_a: brandA,
+                        product_a: productA,
+                        brand_b: brandB,
+                        product_b: productB,
+                        sources: ['danawa']
+                    })
+                });
+
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+
+                const data = await response.json();
+                displayResults(data);
+                results.style.display = 'block';
+
+            } catch (error) {
+                console.error('Error:', error);
+                errorState.style.display = 'block';
+                document.getElementById('errorMessage').textContent = error.message;
+            } finally {
+                btn.classList.remove('loading');
+                btn.disabled = false;
+            }
+        }
+
+        function displayResults(data) {
+            // Product A
+            displayProduct('A', data.product_a);
+
+            // Product B
+            displayProduct('B', data.product_b);
+
+            // Comparison
+            displayComparison(data.comparison);
+
+            // Fetched time
+            if (data.product_a.best_offer?.fetched_at) {
+                const date = new Date(data.product_a.best_offer.fetched_at);
+                document.getElementById('fetchedAt').textContent = date.toLocaleString('ko-KR');
+            }
+        }
+
+        function displayProduct(suffix, product) {
+            const bestOffer = product.best_offer;
+
+            // Title
+            document.getElementById(`title${suffix}`).textContent =
+                bestOffer?.title || `${product.brand} ${product.query}`;
+
+            // Image
+            const imgEl = document.getElementById(`image${suffix}`);
+            if (bestOffer?.image_url && !bestOffer.image_url.includes('noImg')) {
+                imgEl.src = bestOffer.image_url;
+                imgEl.style.display = 'block';
+            } else {
+                imgEl.src = 'https://via.placeholder.com/120?text=No+Image';
+            }
+
+            // Price
+            document.getElementById(`price${suffix}`).textContent =
+                bestOffer?.price_krw ? `${bestOffer.price_krw.toLocaleString()}원` : '-';
+
+            // Rating
+            const rating = bestOffer?.rating;
+            if (rating) {
+                const stars = '★'.repeat(Math.floor(rating)) + '☆'.repeat(5 - Math.floor(rating));
+                document.getElementById(`rating${suffix}`).innerHTML =
+                    `${stars} <span class="text-dark">${rating.toFixed(1)}</span>`;
+            } else {
+                document.getElementById(`rating${suffix}`).textContent = '평점 없음';
+            }
+
+            // Review count
+            document.getElementById(`reviewCount${suffix}`).textContent =
+                bestOffer?.review_count ? `${bestOffer.review_count.toLocaleString()}개` : '리뷰 없음';
+
+            // Source
+            document.getElementById(`source${suffix}`).textContent =
+                bestOffer?.source ? `출처: ${bestOffer.source}` : '';
+
+            // Pros
+            const pros = product.pros || [];
+            document.getElementById(`pros${suffix}`).innerHTML =
+                pros.length > 0
+                    ? pros.map(p => `<span class="badge badge-pros me-1 mb-1">${p}</span>`).join('')
+                    : '<span class="text-muted">정보 없음</span>';
+
+            // Cons
+            const cons = product.cons || [];
+            document.getElementById(`cons${suffix}`).innerHTML =
+                cons.length > 0
+                    ? cons.map(c => `<span class="badge badge-cons me-1 mb-1">${c}</span>`).join('')
+                    : '<span class="text-muted">정보 없음</span>';
+
+            // Other offers
+            const offers = product.offers || [];
+            if (offers.length > 1) {
+                document.getElementById(`offers${suffix}`).innerHTML =
+                    offers.slice(1, 6).map(o => `
+                        <div class="offer-item">
+                            <span class="text-truncate" style="max-width: 200px;">${o.title}</span>
+                            <span class="offer-price">${o.price_krw?.toLocaleString() || '-'}원</span>
+                        </div>
+                    `).join('');
+            } else {
+                document.getElementById(`offers${suffix}`).innerHTML =
+                    '<div class="text-muted small">다른 판매처 정보 없음</div>';
+            }
+        }
+
+        function displayComparison(comparison) {
+            // Price diff
+            const priceDiff = comparison.price_diff_krw;
+            if (priceDiff !== null) {
+                const priceEl = document.getElementById('priceDiff');
+                if (priceDiff > 0) {
+                    priceEl.innerHTML = `<span class="diff-negative">A가 ${priceDiff.toLocaleString()}원 비쌈</span>`;
+                } else if (priceDiff < 0) {
+                    priceEl.innerHTML = `<span class="diff-positive">A가 ${Math.abs(priceDiff).toLocaleString()}원 저렴</span>`;
+                } else {
+                    priceEl.textContent = '동일';
+                }
+            } else {
+                document.getElementById('priceDiff').textContent = '-';
+            }
+
+            // Rating diff
+            const ratingDiff = comparison.rating_diff;
+            if (ratingDiff !== null) {
+                const ratingEl = document.getElementById('ratingDiff');
+                if (ratingDiff > 0) {
+                    ratingEl.innerHTML = `<span class="diff-positive">A가 ${ratingDiff.toFixed(1)}점 높음</span>`;
+                } else if (ratingDiff < 0) {
+                    ratingEl.innerHTML = `<span class="diff-negative">A가 ${Math.abs(ratingDiff).toFixed(1)}점 낮음</span>`;
+                } else {
+                    ratingEl.textContent = '동일';
+                }
+            } else {
+                document.getElementById('ratingDiff').textContent = '-';
+            }
+
+            // Review diff
+            const reviewDiff = comparison.review_count_diff;
+            if (reviewDiff !== null) {
+                const reviewEl = document.getElementById('reviewDiff');
+                if (reviewDiff > 0) {
+                    reviewEl.innerHTML = `<span class="diff-positive">A가 ${reviewDiff.toLocaleString()}개 많음</span>`;
+                } else if (reviewDiff < 0) {
+                    reviewEl.innerHTML = `<span class="diff-negative">A가 ${Math.abs(reviewDiff).toLocaleString()}개 적음</span>`;
+                } else {
+                    reviewEl.textContent = '동일';
+                }
+            } else {
+                document.getElementById('reviewDiff').textContent = '-';
+            }
+        }
+    </script>
+</body>
+</html>
