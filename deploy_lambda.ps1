@@ -37,6 +37,30 @@ if (-not $RoleExists) {
     Write-Host "Role already exists" -ForegroundColor Green
 }
 
+# Add DynamoDB permissions
+Write-Host "Adding DynamoDB permissions..." -ForegroundColor Yellow
+$DynamoDBPolicy = @"
+{
+    "Version": "2012-10-17",
+    "Statement": [
+        {
+            "Effect": "Allow",
+            "Action": [
+                "dynamodb:GetItem",
+                "dynamodb:Scan",
+                "dynamodb:Query"
+            ],
+            "Resource": "arn:aws:dynamodb:${Region}:${AccountId}:table/nongshim-product-cache"
+        }
+    ]
+}
+"@
+$DynamoPolicyFile = Join-Path $env:TEMP "dynamodb-policy.json"
+$DynamoDBPolicy | Out-File -FilePath $DynamoPolicyFile -Encoding ascii
+
+# Create inline policy for DynamoDB
+aws iam put-role-policy --role-name $RoleName --policy-name "DynamoDBReadAccess" --policy-document "file://$DynamoPolicyFile" 2>$null
+
 $RoleArn = (aws iam get-role --role-name $RoleName --query "Role.Arn" --output text 2>$null)
 if ($RoleArn) { $RoleArn = $RoleArn.Trim() }
 Write-Host "Role ARN: $RoleArn" -ForegroundColor Cyan
@@ -77,14 +101,16 @@ $FunctionExists = aws lambda get-function --function-name $FunctionName --region
 # Create or update Lambda function
 Write-Host "`nDeploying Lambda function..." -ForegroundColor Yellow
 
+$EnvVars = "Variables={DYNAMODB_TABLE=nongshim-product-cache,AWS_REGION=$Region}"
+
 if ($FunctionExists) {
     Write-Host "Updating existing function..." -ForegroundColor Gray
     aws lambda update-function-code --function-name $FunctionName --zip-file "fileb://$ZipFile" --region $Region 2>$null | Out-Null
     Start-Sleep -Seconds 5
-    aws lambda update-function-configuration --function-name $FunctionName --timeout 30 --memory-size 512 --region $Region 2>$null | Out-Null
+    aws lambda update-function-configuration --function-name $FunctionName --timeout 30 --memory-size 512 --environment $EnvVars --region $Region 2>$null | Out-Null
 } else {
     Write-Host "Creating new function..." -ForegroundColor Gray
-    aws lambda create-function --function-name $FunctionName --runtime python3.11 --role $RoleArn --handler lambda_handler.handler --zip-file "fileb://$ZipFile" --timeout 30 --memory-size 512 --region $Region 2>$null | Out-Null
+    aws lambda create-function --function-name $FunctionName --runtime python3.11 --role $RoleArn --handler lambda_handler.handler --zip-file "fileb://$ZipFile" --timeout 30 --memory-size 512 --environment $EnvVars --region $Region 2>$null | Out-Null
 }
 
 Write-Host "Lambda function deployed" -ForegroundColor Green
@@ -163,3 +189,4 @@ if ($ApiEndpoint) {
 Remove-Item -Recurse -Force $PackageDir -ErrorAction SilentlyContinue
 Remove-Item -Force $ZipFile -ErrorAction SilentlyContinue
 Remove-Item -Force $TrustPolicyFile -ErrorAction SilentlyContinue
+Remove-Item -Force $DynamoPolicyFile -ErrorAction SilentlyContinue

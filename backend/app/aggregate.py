@@ -1,5 +1,6 @@
-"""Aggregate results from data sources - 다나와 스크래핑 전용."""
+"""Aggregate results from data sources - DynamoDB 캐시 우선, 로컬은 다나와 스크래핑."""
 import asyncio
+import os
 from typing import List, Dict, Optional, Tuple
 
 from .schemas import Offer, ProductSummary, Comparison
@@ -7,10 +8,19 @@ from .sources import search_danawa
 from .normalize import match_offers_for_product
 
 
-# Source name to function mapping - 다나와만 사용
-SOURCE_FUNCTIONS = {
-    "danawa": search_danawa,
-}
+# Check if running in Lambda (use DynamoDB) or local (use direct scraping)
+IS_LAMBDA = os.getenv("AWS_LAMBDA_FUNCTION_NAME") is not None
+USE_DYNAMODB = os.getenv("USE_DYNAMODB", "true").lower() == "true"
+
+
+async def fetch_from_dynamodb(query: str, brand: str) -> Tuple[List[Offer], bool]:
+    """Fetch from DynamoDB cache."""
+    try:
+        from .dynamodb_client import get_cached_offers
+        return await get_cached_offers(brand, query)
+    except Exception as e:
+        print(f"DynamoDB fetch error: {e}")
+        return [], False
 
 
 async def fetch_from_sources(
@@ -19,47 +29,41 @@ async def fetch_from_sources(
     sources: List[str],
     max_results: int = 10
 ) -> Tuple[List[Offer], List[str]]:
-    """Fetch product data from multiple sources in parallel.
-    
+    """Fetch product data - from DynamoDB (Lambda) or direct scraping (local).
+
     Args:
         query: Product search query
         brand: Brand name
         sources: List of source names to query
         max_results: Max results per source
-        
+
     Returns:
         Tuple of (all_offers, warnings)
     """
-    all_offers = []
     warnings = []
-    
-    # Create tasks for enabled sources
-    tasks = []
-    source_names = []
-    
-    for source in sources:
-        if source in SOURCE_FUNCTIONS:
-            func = SOURCE_FUNCTIONS[source]
-            tasks.append(func(query, brand, max_results))
-            source_names.append(source)
+
+    # Lambda environment: use DynamoDB cache
+    if IS_LAMBDA or USE_DYNAMODB:
+        offers, from_cache = await fetch_from_dynamodb(query, brand)
+        if offers:
+            return offers, [f"Data from DynamoDB cache ({len(offers)} offers)"]
         else:
-            warnings.append(f"Unknown source: {source}")
-    
-    if not tasks:
-        return [], ["No valid sources specified"]
-    
-    # Run all tasks in parallel
-    results = await asyncio.gather(*tasks, return_exceptions=True)
-    
-    for source_name, result in zip(source_names, results):
-        if isinstance(result, Exception):
-            warnings.append(f"Error from {source_name}: {str(result)}")
-        elif result:
-            all_offers.extend(result)
+            warnings.append("No cached data in DynamoDB. Run local_scraper.py to populate.")
+            # Don't try direct scraping in Lambda (blocked by Danawa)
+            if IS_LAMBDA:
+                return [], warnings
+
+    # Local environment: direct scraping
+    try:
+        offers = await search_danawa(query, brand, max_results)
+        if offers:
+            return offers, ["Data from direct Danawa scraping"]
         else:
-            warnings.append(f"No results from {source_name}")
-    
-    return all_offers, warnings
+            warnings.append("No results from Danawa scraping")
+            return [], warnings
+    except Exception as e:
+        warnings.append(f"Scraping error: {str(e)}")
+        return [], warnings
 
 
 async def aggregate_product_data(
