@@ -95,3 +95,8 @@ lambda_package/
 
 # Node (if any)
 node_modules/
+
+# Local documentation (not for GitHub)
+proj.md
+RUNNING.md
+API_ENDPOINT.txt

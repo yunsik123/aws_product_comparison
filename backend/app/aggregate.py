@@ -1,23 +1,15 @@
-"""Aggregate results from multiple data sources."""
+"""Aggregate results from data sources - 다나와 스크래핑 전용."""
 import asyncio
 from typing import List, Dict, Optional, Tuple
 
 from .schemas import Offer, ProductSummary, Comparison
-from .sources import (
-    search_elevenst,
-    search_danawa,
-    search_naver_serpapi,
-    search_scrape_fallback
-)
+from .sources import search_danawa
 from .normalize import match_offers_for_product
 
 
-# Source name to function mapping
+# Source name to function mapping - 다나와만 사용
 SOURCE_FUNCTIONS = {
-    "11st": search_elevenst,
     "danawa": search_danawa,
-    "naver_serpapi": search_naver_serpapi,
-    "scrape": search_scrape_fallback,
 }
 
 

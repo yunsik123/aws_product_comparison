@@ -53,9 +53,9 @@ if (Test-Path $ZipFile) { Remove-Item -Force $ZipFile }
 
 New-Item -ItemType Directory -Force -Path $PackageDir | Out-Null
 
-# Install dependencies
+# Install dependencies (Lambda compatible - Linux x86_64)
 Write-Host "Installing dependencies (this may take a minute)..." -ForegroundColor Gray
-pip install -r backend\requirements.txt -t $PackageDir --quiet --upgrade 2>$null
+pip install -r backend\requirements.txt -t $PackageDir --quiet --upgrade --platform manylinux2014_x86_64 --only-binary=:all: --implementation cp --python-version 3.11 2>$null
 
 # Copy application code
 Write-Host "Copying application code..." -ForegroundColor Gray
