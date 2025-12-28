@@ -6,13 +6,13 @@ from datetime import datetime
 
 class CompareRequest(BaseModel):
     """Request schema for product comparison."""
-    brand_a: Literal["농심"] = Field(default="농심", description="Brand A (fixed for MVP)")
+    brand_a: str = Field(default="농심", description="Brand A name")
     product_a: str = Field(default="신라면", description="Product A name")
     brand_b: str = Field(default="오뚜기", description="Brand B name")
     product_b: str = Field(default="진라면 매운맛", description="Product B name")
-    sources: List[Literal["11st", "danawa", "naver_serpapi", "scrape"]] = Field(
+    sources: List[Literal["danawa"]] = Field(
         default=["danawa"],
-        description="Data sources to use (danawa uses scraping, no API key needed)"
+        description="Data sources to use (danawa only)"
     )
     force_refresh: bool = Field(default=False, description="Force refresh bypassing cache")
 

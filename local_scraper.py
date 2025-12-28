@@ -31,16 +31,34 @@ DYNAMODB_TABLE = "nongshim-product-cache"
 AWS_REGION = "ap-northeast-2"
 TTL_HOURS = 24  # Data expires after 24 hours
 
-# Default products to scrape
+# Default products to scrape (브랜드별 라면 제품)
 DEFAULT_PRODUCTS = [
+    # 농심
     {"brand": "농심", "query": "신라면"},
     {"brand": "농심", "query": "신라면 컵"},
     {"brand": "농심", "query": "짜파게티"},
     {"brand": "농심", "query": "너구리"},
+    {"brand": "농심", "query": "안성탕면"},
+    {"brand": "농심", "query": "육개장"},
+    # 오뚜기
     {"brand": "오뚜기", "query": "진라면"},
     {"brand": "오뚜기", "query": "진라면 매운맛"},
+    {"brand": "오뚜기", "query": "참깨라면"},
+    {"brand": "오뚜기", "query": "진짜장"},
+    {"brand": "오뚜기", "query": "열라면"},
+    {"brand": "오뚜기", "query": "스낵면"},
+    # 삼양
     {"brand": "삼양", "query": "삼양라면"},
+    {"brand": "삼양", "query": "불닭볶음면"},
+    {"brand": "삼양", "query": "짜짜로니"},
+    {"brand": "삼양", "query": "나가사키짬뽕"},
+    {"brand": "삼양", "query": "맛있는라면"},
+    # 팔도
     {"brand": "팔도", "query": "팔도비빔면"},
+    {"brand": "팔도", "query": "왕뚜껑"},
+    {"brand": "팔도", "query": "틈새라면"},
+    {"brand": "팔도", "query": "꼬꼬면"},
+    {"brand": "팔도", "query": "일품해물라면"},
 ]
 
 
