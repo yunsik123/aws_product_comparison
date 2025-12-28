@@ -1,8 +1,9 @@
 """다나와 웹스크래핑 connector (API 키 불필요) - 개선된 버전."""
 import httpx
 import re
-from typing import List, Optional, Tuple
+from typing import List, Optional, Tuple, Dict, Any
 from bs4 import BeautifulSoup
+from dataclasses import dataclass
 
 from ..schemas import Offer
 from ..utils import get_current_iso_datetime, safe_int, safe_float, normalize_rating
@@ -10,6 +11,17 @@ from ..utils import get_current_iso_datetime, safe_int, safe_float, normalize_ra
 
 DANAWA_SEARCH_URL = "https://search.danawa.com/dsearch.php"
 DANAWA_PRODUCT_URL = "https://prod.danawa.com/info/"
+DANAWA_REVIEW_API = "https://prod.danawa.com/info/dpg/ajax/companyProductReview.ajax.php"
+
+
+@dataclass
+class Review:
+    """리뷰 데이터 클래스."""
+    text: str
+    rating: Optional[float] = None
+    mall: Optional[str] = None  # 쇼핑몰명
+    date: Optional[str] = None
+    has_photo: bool = False
 
 
 async def search_danawa(
@@ -265,3 +277,174 @@ def _parse_danawa_html(html: str, max_results: int = 10) -> List[Offer]:
         print(f"HTML parse error: {e}")
 
     return offers
+
+
+async def get_product_reviews(
+    pcode: str,
+    max_reviews: int = 100,
+    sort_type: str = "new"
+) -> Tuple[List[Review], float, int]:
+    """상품 리뷰 수집.
+
+    Args:
+        pcode: 다나와 상품 코드
+        max_reviews: 최대 수집 리뷰 수 (기본 100)
+        sort_type: 정렬 방식 - "new" (최신순), "best" (추천순)
+
+    Returns:
+        (리뷰 목록, 평균 평점, 전체 리뷰 수) 튜플
+    """
+    headers = {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
+        "Accept-Language": "ko-KR,ko;q=0.9",
+        "Referer": f"https://prod.danawa.com/info/?pcode={pcode}",
+    }
+
+    reviews: List[Review] = []
+    avg_rating: float = 0.0
+    total_count: int = 0
+    page = 1
+    per_page = 30  # 다나와 API 최대값
+
+    try:
+        async with httpx.AsyncClient(timeout=20.0, follow_redirects=True) as client:
+            while len(reviews) < max_reviews:
+                params = {
+                    "prodCode": pcode,
+                    "page": page,
+                    "limit": per_page,
+                    "score": 0,  # 0 = 전체, 1-5 = 해당 점수만
+                    "sortType": sort_type,
+                }
+
+                resp = await client.get(DANAWA_REVIEW_API, params=params, headers=headers)
+                if resp.status_code != 200:
+                    break
+
+                soup = BeautifulSoup(resp.text, 'html.parser')
+
+                # 첫 페이지에서 평점/전체 리뷰 수 추출
+                if page == 1:
+                    rating_elem = soup.select_one('.point_num .num_c, .point_num strong')
+                    if rating_elem:
+                        try:
+                            avg_rating = float(rating_elem.get_text(strip=True))
+                        except ValueError:
+                            pass
+
+                    count_elem = soup.select_one('.cen_w .num_c, .cen_w strong')
+                    if count_elem:
+                        try:
+                            count_text = count_elem.get_text(strip=True).replace(',', '')
+                            total_count = int(count_text)
+                        except ValueError:
+                            pass
+
+                # 리뷰 파싱
+                review_items = soup.select('.cmt_item, .danawa-prodBlog-companyReview-clazz-more')
+                if not review_items:
+                    # 다른 구조 시도
+                    review_items = soup.select('li[class*="cmt"]')
+
+                if not review_items:
+                    break
+
+                for item in review_items:
+                    if len(reviews) >= max_reviews:
+                        break
+
+                    # 리뷰 텍스트
+                    text_elem = item.select_one('.atc')
+                    if not text_elem:
+                        continue
+                    text = text_elem.get_text(strip=True)
+                    if not text or len(text) < 3:
+                        continue
+
+                    # 평점 (개별 리뷰)
+                    rating = None
+                    star_elem = item.select_one('.star_mask, .point_type_s .star_mask')
+                    if star_elem:
+                        style = star_elem.get('style', '')
+                        width_match = re.search(r'width:\s*(\d+)%', style)
+                        if width_match:
+                            rating = float(width_match.group(1)) / 20.0  # 100% = 5점
+
+                    # 쇼핑몰명
+                    mall = None
+                    mall_elem = item.select_one('.mall_txt, .mall_name, .info_cell a')
+                    if mall_elem:
+                        mall = mall_elem.get_text(strip=True)
+
+                    # 날짜
+                    date = None
+                    date_elem = item.select_one('.date, .info_date')
+                    if date_elem:
+                        date = date_elem.get_text(strip=True)
+
+                    # 포토 리뷰 여부
+                    has_photo = bool(item.select_one('.ico.i_photo_review, .photo_review, img.review_img'))
+
+                    reviews.append(Review(
+                        text=text[:500],  # 최대 500자
+                        rating=rating,
+                        mall=mall,
+                        date=date,
+                        has_photo=has_photo
+                    ))
+
+                # 다음 페이지
+                page += 1
+
+                # 더 이상 리뷰가 없으면 종료
+                if len(review_items) < per_page:
+                    break
+
+    except Exception as e:
+        print(f"Error fetching reviews: {e}")
+
+    return reviews, avg_rating, total_count
+
+
+async def get_reviews_by_query(
+    query: str,
+    brand: Optional[str] = None,
+    max_reviews: int = 100
+) -> Tuple[List[Review], float, int, str]:
+    """검색어로 상품 찾아서 리뷰 수집.
+
+    Returns:
+        (리뷰 목록, 평균 평점, 전체 리뷰 수, 상품 URL) 튜플
+    """
+    # 먼저 상품 검색해서 pcode 추출
+    search_query = f"{brand} {query}" if brand else query
+
+    headers = {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
+        "Accept-Language": "ko-KR,ko;q=0.9",
+    }
+
+    try:
+        async with httpx.AsyncClient(timeout=20.0, follow_redirects=True) as client:
+            params = {"keyword": search_query, "module": "goods"}
+            resp = await client.get(DANAWA_SEARCH_URL, params=params, headers=headers)
+            soup = BeautifulSoup(resp.text, 'html.parser')
+
+            # 첫 번째 상품 URL에서 pcode 추출
+            prod_link = soup.select_one('.prod_name a')
+            if not prod_link:
+                return [], 0.0, 0, ""
+
+            prod_url = prod_link.get('href', '')
+            pcode_match = re.search(r'pcode=(\d+)', prod_url)
+            if not pcode_match:
+                return [], 0.0, 0, ""
+
+            pcode = pcode_match.group(1)
+            reviews, avg_rating, total_count = await get_product_reviews(pcode, max_reviews)
+
+            return reviews, avg_rating, total_count, prod_url
+
+    except Exception as e:
+        print(f"Error in get_reviews_by_query: {e}")
+        return [], 0.0, 0, ""
